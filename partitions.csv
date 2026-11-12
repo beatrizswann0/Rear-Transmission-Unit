@@ -1,0 +1,6 @@
+# RTU — ESP32 WROOM 4MB: quase toda a flash na app factory.
+# Offset 0x10000; size 0x3F0000 (~4032 KiB). Sem OTA / SPIFFS interno (SD externo).
+# Name,   Type, SubType, Offset,  Size, Flags
+nvs,      data, nvs,     0x9000,  0x6000,
+phy_init, data, phy,     0xf000,  0x1000,
+factory,  app,  factory, 0x10000, 0x3F0000,

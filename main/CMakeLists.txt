@@ -1,0 +1,33 @@
+idf_component_register(
+    SRCS
+        "app_main.c"
+        "system_fsm.c"
+        "telemetry_agg.c"
+        "cmd_parser.c"
+        "status_led.c"
+        "telem_store.c"
+        "wifi_ap.c"
+        "http_telem.c"
+        "rtu_diag.c"
+        "rtu_health.c"
+    INCLUDE_DIRS
+        "."
+        "../../../shared"
+    REQUIRES
+        board
+        can_mgmt
+        ebyte_e32
+        sd_log
+        a7670_mqtt
+        driver
+        esp_driver_gpio
+        esp_driver_uart
+        freertos
+        log
+        nvs_flash
+        esp_wifi
+        esp_netif
+        esp_event
+        esp_http_server
+        esp_timer
+)
