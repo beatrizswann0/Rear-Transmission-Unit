@@ -29,6 +29,7 @@
 #include "rtu_diag.h"
 #include "rtu_health.h"
 #include "rtu_fw.h"
+#include "lora_rate.h"
 
 static const char *TAG = "RTU";
 
@@ -126,17 +127,21 @@ static void can_svc_task(void *arg)
     }
 }
 
-#define LORA_TX_PERIOD_MS 1000  /* SoftAP ~20 ms; LoRa 1 Hz — QoS ar */
-
 static void lora_tx_task(void *arg)
 {
     (void)arg;
     telemetry_packet_t tx_copy;
-    ESP_LOGI(TAG, "lora_tx on core %d period=%dms", xPortGetCoreID(), LORA_TX_PERIOD_MS);
+    uint32_t logged_ms = 0;
+    ESP_LOGI(TAG, "lora_tx on core %d", xPortGetCoreID());
 
     while (1) {
-        /* ACK imediato se cmd pediu; senão cadência 1 Hz. */
-        (void)xSemaphoreTake(q.tx_trigger, pdMS_TO_TICKS(LORA_TX_PERIOD_MS));
+        /* ACK imediato se cmd pediu; senão a cadência escolhida na telemetria. */
+        uint32_t period_ms = lora_rate_ms();
+        if (period_ms != logged_ms) {
+            ESP_LOGI(TAG, "lora_tx period=%lums", (unsigned long)period_ms);
+            logged_ms = period_ms;
+        }
+        (void)xSemaphoreTake(q.tx_trigger, pdMS_TO_TICKS(period_ms));
 
         if (!fsm_is_running() && fsm_state() != FSM_SELF_CHECK) {
             continue;
@@ -179,6 +184,7 @@ static void lora_tx_task(void *arg)
 
         if (e32_send_struct(&tx_copy, sizeof(tx_copy))) {
             rtu_health_note_lora(true);
+            lora_rate_note_tx();
             static uint32_t tx_ok;
             tx_ok++;
             if ((tx_ok % 8u) == 1u) {
@@ -410,6 +416,7 @@ void app_main(void)
         ESP_LOGE(TAG, "WiFi SoftAP falhou");
     } else {
         rtu_health_init(); /* NVS boot/reset após nvs_flash do SoftAP */
+        lora_rate_init();
         if (http_telem_start(http_ascii_cmd) != ESP_OK) {
             ESP_LOGE(TAG, "HTTP UI falhou");
         }
@@ -424,6 +431,7 @@ void app_main(void)
     q.sd = xQueueCreate(SD_QUEUE_SIZE, sizeof(SD_Storage_Packet));
     q.tx_trigger = xSemaphoreCreateBinary();
     q.ack_mutex = xSemaphoreCreateMutex();
+    lora_rate_bind_kick(q.tx_trigger);
 
     if (q.telemetry == NULL || q.sd == NULL || q.tx_trigger == NULL || q.ack_mutex == NULL) {
         ESP_LOGE(TAG, "queue/mutex alloc failed — restart");

@@ -10,6 +10,7 @@ idf_component_register(
         "http_telem.c"
         "rtu_diag.c"
         "rtu_health.c"
+        "lora_rate.c"
     INCLUDE_DIRS
         "."
         "../../../shared"
