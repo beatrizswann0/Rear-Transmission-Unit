@@ -1,6 +1,8 @@
 #include "lora_rate.h"
 
+#include <assert.h>
 #include <stdio.h>
+#include "esp_err.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "nvs.h"
@@ -17,7 +19,9 @@ static SemaphoreHandle_t s_kick;
 
 static bool allowed(uint32_t ms)
 {
-    for (size_t i = 0; i < sizeof(k_opts) / sizeof(k_opts[0]); i++) {
+    const size_t n = sizeof(k_opts) / sizeof(k_opts[0]);
+    assert(n == 5);
+    for (size_t i = 0; i < n; i++) {
         if (k_opts[i] == ms) {
             return true;
         }
@@ -25,19 +29,25 @@ static bool allowed(uint32_t ms)
     return false;
 }
 
-static void persist(uint32_t ms)
+static bool persist(uint32_t ms)
 {
+    assert(allowed(ms));
     nvs_handle_t h;
     if (nvs_open("rtu", NVS_READWRITE, &h) != ESP_OK) {
-        return;
+        return false;
     }
-    (void)nvs_set_u32(h, "lora_ms", ms);
-    (void)nvs_commit(h);
+    esp_err_t err = nvs_set_u32(h, "lora_ms", ms);
+    if (err == ESP_OK) {
+        err = nvs_commit(h);
+    }
     nvs_close(h);
+    return err == ESP_OK;
 }
 
 void lora_rate_init(void)
 {
+    assert(k_opts[0] == LORA_RATE_MIN_MS);
+    assert(k_opts[(sizeof(k_opts) / sizeof(k_opts[0])) - 1] == LORA_RATE_MAX_MS);
     nvs_handle_t h;
     if (nvs_open("rtu", NVS_READONLY, &h) == ESP_OK) {
         uint32_t ms = 0;
@@ -57,7 +67,12 @@ void lora_rate_bind_kick(SemaphoreHandle_t kick)
 uint32_t lora_rate_ms(void)
 {
     uint32_t ms = s_period_ms;
-    return allowed(ms) ? ms : LORA_RATE_DEFAULT_MS;
+    if (!allowed(ms)) {
+        ms = LORA_RATE_DEFAULT_MS;
+    }
+    assert(allowed(ms));
+    assert(ms >= LORA_RATE_MIN_MS && ms <= LORA_RATE_MAX_MS);
+    return ms;
 }
 
 bool lora_rate_set_ms(uint32_t ms)
@@ -65,14 +80,20 @@ bool lora_rate_set_ms(uint32_t ms)
     if (!allowed(ms)) {
         return false;
     }
+    assert(ms >= LORA_RATE_MIN_MS);
+    assert(ms <= LORA_RATE_MAX_MS);
     if (s_period_ms == ms) {
         return true;
     }
     s_period_ms = ms;
-    persist(ms);
+    if (!persist(ms)) {
+        ESP_LOGW(TAG, "NVS nao gravou %lums; vale ate o reboot", (unsigned long)ms);
+    }
     ESP_LOGI(TAG, "periodo → %lums", (unsigned long)ms);
     if (s_kick != NULL) {
-        (void)xSemaphoreGive(s_kick);
+        BaseType_t kicked = xSemaphoreGive(s_kick);
+        assert(kicked == pdTRUE || kicked == pdFALSE);
+        (void)kicked;
     }
     return true;
 }
@@ -85,6 +106,8 @@ void lora_rate_note_tx(void)
         s_gap_ms = now - prev;
     }
     s_last_tx_ms = now;
+    assert(s_last_tx_ms == now);
+    assert(allowed(s_period_ms));
 }
 
 uint32_t lora_rate_gap_ms(void)
@@ -94,6 +117,8 @@ uint32_t lora_rate_gap_ms(void)
 
 int lora_rate_json(char *buf, size_t cap)
 {
+    assert(buf != NULL);
+    assert(cap >= 32);
     if (buf == NULL || cap < 32) {
         return 0;
     }

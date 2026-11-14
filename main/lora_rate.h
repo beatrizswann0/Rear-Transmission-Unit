@@ -9,7 +9,9 @@
 /* Cadência do pacote no ar. SoftAP continua ~20 ms; isto só muda o E32.
  * Períodos abaixo de 500 ms não cabem no air rate 2.4 kbps (SPED 0x1A). */
 
+#define LORA_RATE_MIN_MS     500u
 #define LORA_RATE_DEFAULT_MS 1000u
+#define LORA_RATE_MAX_MS     10000u
 
 void lora_rate_init(void);
 
