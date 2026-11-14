@@ -25,8 +25,8 @@
 
 /* ---- GPRS A7670SA (UART1, via LLC 1.8↔3.3) ---- */
 #define PIN_A7670_UART_NUM      UART_NUM_1
-#define PIN_A7670_TX            GPIO_NUM_35  /* ESP TX → modem RXD (HW a corrigir) */
-#define PIN_A7670_RX            GPIO_NUM_34  /* ESP RX ← modem TXD (input-only ok) */
+#define PIN_A7670_TX            GPIO_NUM_32  /* ESP TX → modem RXD (HW a corrigir) */ /*tinha uma mensagem falando que precisava corrigir *bea */
+#define PIN_A7670_RX            GPIO_NUM_33  /* ESP RX ← modem TXD (input-only ok) */ /*troquei para ficar mais proximo do gpio 32*/
 
 /* ---- SD SPI (SPI2) ---- */
 #define PIN_SD_MISO             GPIO_NUM_19
